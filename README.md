@@ -1,15 +1,12 @@
-# transfer.sh [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/dutchcoders/transfer.sh?utm_source=badge&utm_medium=badge&utm_campaign=&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/github.com/dutchcoders/transfer.sh)](https://goreportcard.com/report/github.com/dutchcoders/transfer.sh) [![Docker pulls](https://img.shields.io/docker/pulls/dutchcoders/transfer.sh.svg)](https://hub.docker.com/r/dutchcoders/transfer.sh/) [![Build Status](https://travis-ci.com/dutchcoders/transfer.sh.svg?branch=master)](https://travis-ci.com/dutchcoders/transfer.sh)
+# transfer.sh [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/dutchcoders/transfer.sh?utm_source=badge&utm_medium=badge&utm_campaign=&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/github.com/dutchcoders/transfer.sh)](https://goreportcard.com/report/github.com/dutchcoders/transfer.sh) [![Docker pulls](https://img.shields.io/docker/pulls/dutchcoders/transfer.sh.svg)](https://hub.docker.com/r/dutchcoders/transfer.sh/) [![Build Status](https://github.com/dutchcoders/transfer.sh/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/dutchcoders/transfer.sh/actions/workflows/test.yml?query=branch%3Amaster)
 
 Easy and fast file sharing from the command-line. This code contains the server with everything you need to create your own instance.
 
-Transfer.sh currently supports the s3 (Amazon S3), gdrive (Google Drive) providers, and local file system (local).
+Transfer.sh currently supports the s3 (Amazon S3), gdrive (Google Drive), storj (Storj) providers, and local file system (local).
 
 ## Disclaimer
-This project repository has no relation with the service at https://transfer.sh that's managed by https://storj.io.
-So far we cannot address any issue related to the service at https://transfer.sh.
 
 The service at https://transfersh.com is of unknown origin and reported as cloud malware.
-
 
 ## Usage
 
@@ -117,6 +114,7 @@ rate-limit | request per minute  | | RATE_LIMIT |
 max-upload-size | max upload size in kilobytes  | | MAX_UPLOAD_SIZE |
 purge-days | number of days after the uploads are purged automatically | | PURGE_DAYS |   
 purge-interval | interval in hours to run the automatic purge for (not applicable to S3 and Storj) | | PURGE_INTERVAL |   
+random-token-length | length of the random token for the upload path (double the size for delete path) | 6 | RANDOM_TOKEN_LENGTH |   
 
 If you want to use TLS using lets encrypt certificates, set lets-encrypt-hosts to your domain, set tls-listener to :443 and enable force-https.
 
@@ -170,22 +168,21 @@ To use the Storj Network as storage provider you need to specify the following f
 
 ### Creating Bucket and Scope
 
-In preparation you need to create a scope (or copy it from the uplink configuration) and a bucket.
+In preparation you need to create an access grant (or copy it from the uplink configuration) and a bucket.
 
-To get started, download the latest uplink from the release page: https://github.com/storj/storj/releases
+To get started, login to your account and go to the Access Grant Menu and start the Wizard on the upper right.
 
-After extracting, execute `uplink setup`. The Wizard asks for Satellite to use, the API Key 
-(which you can retrieve via the Satellite UI), as well as an Encryption Key.
-Once the uplink is setup create the bucket using the following schema: 
-`uplink mb sj://<BUCKET>` where <BUCKET> is your desired name.
+Enter your access grant name of choice, hit *Next* and restrict it as necessary/preferred.
+Aftwards continue either in CLI or within the Browser. You'll be asked for a Passphrase used as Encryption Key.
+**Make sure to save it in a safe place, without it you will lose the ability to decrypt your files!**
 
-Afterwards you can copy the SCOPE out of the configuration file of the uplink and then start the startup of the
-transfer.sh endpoint. For enhanced security its recommended to provide both the scope and the bucket name as ENV Variables.
+Afterwards you can copy the access grant and then start the startup of the transfer.sh endpoint. 
+For enhanced security its recommended to provide both the access grant and the bucket name as ENV Variables.
 
 Example:
 ```
-export STORJ_BUCKET=transfersh
-export STORJ_ACCESS=<SCOPE>
+export STORJ_BUCKET=<BUCKET NAME>
+export STORJ_ACCESS=<ACCESS GRANT>
 transfer.sh --provider storj
 ```
 
@@ -221,6 +218,8 @@ Contributions are welcome.
 ## Maintainer
 
 **Andrea Spacca**
+
+**Stefan Benten**
 
 ## Copyright and license
 

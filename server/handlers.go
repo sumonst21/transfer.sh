@@ -41,7 +41,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"mime"
 	"net/http"
 	"net/url"
@@ -93,6 +92,27 @@ func initHTMLTemplates() *html_template.Template {
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Approaching Neutral Zone, all systems normal and functioning.")
+}
+
+func canContainsXSS(contentType string) bool {
+	switch {
+	case strings.Contains(contentType, "cache-manifest"):
+		fallthrough
+	case strings.Contains(contentType, "html"):
+		fallthrough
+	case strings.Contains(contentType, "rdf"):
+		fallthrough
+	case strings.Contains(contentType, "vtt"):
+		fallthrough
+	case strings.Contains(contentType, "xml"):
+		fallthrough
+	case strings.Contains(contentType, "xsl"):
+		return true
+	case strings.Contains(contentType, "x-mixed-replace"):
+		return true
+	}
+
+	return false
 }
 
 /* The preview handler will show a preview of the content for browsers (accept type text/html), and referer is not transfer.sh */
@@ -174,23 +194,25 @@ func (s *Server) previewHandler(w http.ResponseWriter, r *http.Request) {
 	webAddress := resolveWebAddress(r, s.proxyPath, s.proxyPort)
 
 	data := struct {
-		ContentType   string
-		Content       html_template.HTML
-		Filename      string
-		Url           string
-		UrlGet        string
-		Hostname      string
-		WebAddress    string
-		ContentLength uint64
-		GAKey         string
-		UserVoiceKey  string
-		QRCode        string
+		ContentType    string
+		Content        html_template.HTML
+		Filename       string
+		Url            string
+		UrlGet         string
+		UrlRandomToken string
+		Hostname       string
+		WebAddress     string
+		ContentLength  uint64
+		GAKey          string
+		UserVoiceKey   string
+		QRCode         string
 	}{
 		contentType,
 		content,
 		filename,
 		resolvedURL,
 		resolvedURLGet,
+		token,
 		hostname,
 		webAddress,
 		contentLength,
@@ -255,18 +277,14 @@ func (s *Server) postHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token := Encode(10000000 + int64(rand.Intn(1000000000)))
+	token := Encode(INIT_SEED, s.randomTokenLength)
 
 	w.Header().Set("Content-Type", "text/plain")
 
 	for _, fheaders := range r.MultipartForm.File {
 		for _, fheader := range fheaders {
 			filename := sanitize(fheader.Filename)
-			contentType := fheader.Header.Get("Content-Type")
-
-			if contentType == "" {
-				contentType = mime.TypeByExtension(filepath.Ext(fheader.Filename))
-			}
+			contentType := mime.TypeByExtension(filepath.Ext(fheader.Filename))
 
 			var f io.Reader
 			var err error
@@ -317,7 +335,7 @@ func (s *Server) postHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			metadata := MetadataForRequest(contentType, r)
+			metadata := MetadataForRequest(contentType, s.randomTokenLength, r)
 
 			buffer := &bytes.Buffer{}
 			if err := json.NewEncoder(buffer).Encode(metadata); err != nil {
@@ -381,13 +399,13 @@ type Metadata struct {
 	DeletionToken string
 }
 
-func MetadataForRequest(contentType string, r *http.Request) Metadata {
+func MetadataForRequest(contentType string, randomTokenLength int64, r *http.Request) Metadata {
 	metadata := Metadata{
-		ContentType:   contentType,
+		ContentType:   strings.ToLower(contentType),
 		MaxDate:       time.Time{},
 		Downloads:     0,
 		MaxDownloads:  -1,
-		DeletionToken: Encode(10000000+int64(rand.Intn(1000000000))) + Encode(10000000+int64(rand.Intn(1000000000))),
+		DeletionToken: Encode(INIT_SEED, randomTokenLength) + Encode(INIT_SEED, randomTokenLength),
 	}
 
 	if v := r.Header.Get("Max-Downloads"); v == "" {
@@ -473,15 +491,11 @@ func (s *Server) putHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	contentType := r.Header.Get("Content-Type")
+	contentType := mime.TypeByExtension(filepath.Ext(vars["filename"]))
 
-	if contentType == "" {
-		contentType = mime.TypeByExtension(filepath.Ext(vars["filename"]))
-	}
+	token := Encode(INIT_SEED, s.randomTokenLength)
 
-	token := Encode(10000000 + int64(rand.Intn(1000000000)))
-
-	metadata := MetadataForRequest(contentType, r)
+	metadata := MetadataForRequest(contentType, s.randomTokenLength, r)
 
 	buffer := &bytes.Buffer{}
 	if err := json.NewEncoder(buffer).Encode(metadata); err != nil {
@@ -661,13 +675,11 @@ func (s *Server) CheckMetadata(token, filename string, increaseDownload bool) (M
 		return metadata, errors.New("MaxDownloads expired.")
 	} else if !metadata.MaxDate.IsZero() && time.Now().After(metadata.MaxDate) {
 		return metadata, errors.New("MaxDate expired.")
-	} else {
+	} else if metadata.MaxDownloads != -1 && increaseDownload {
 		// todo(nl5887): mutex?
 
 		// update number of downloads
-		if increaseDownload {
-			metadata.Downloads++
-		}
+		metadata.Downloads++
 
 		buffer := &bytes.Buffer{}
 		if err := json.NewEncoder(buffer).Encode(metadata); err != nil {
@@ -688,7 +700,7 @@ func (s *Server) CheckDeletionToken(deletionToken, token, filename string) error
 
 	r, _, err := s.storage.Get(token, fmt.Sprintf("%s.metadata", filename))
 	if s.storage.IsNotExist(err) {
-		return nil
+		return errors.New("Metadata doesn't exist")
 	} else if err != nil {
 		return err
 	}
@@ -1008,6 +1020,10 @@ func (s *Server) getHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Remaining-Downloads", remainingDownloads)
 	w.Header().Set("X-Remaining-Days", remainingDays)
+
+	if disposition == "inline" && canContainsXSS(contentType) {
+		reader = ioutil.NopCloser(bluemonday.UGCPolicy().SanitizeReader(reader))
+	}
 
 	if w.Header().Get("Range") == "" {
 		if _, err = io.Copy(w, reader); err != nil {

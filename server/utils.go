@@ -2,6 +2,8 @@
 The MIT License (MIT)
 
 Copyright (c) 2014-2017 DutchCoders [https://github.com/dutchcoders/]
+Copyright (c) 2018-2020 Andrea Spacca.
+Copyright (c) 2020- Andrea Spacca and Stefan Benten.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +27,7 @@ THE SOFTWARE.
 package server
 
 import (
+	"fmt"
 	"math"
 	"net/http"
 	"net/mail"
@@ -47,8 +50,7 @@ func getAwsSession(accessKey, secretKey, region, endpoint string, forcePathStyle
 }
 
 func formatNumber(format string, s uint64) string {
-
-	return RenderFloat(format, float64(s))
+	return renderFloat(format, float64(s))
 }
 
 var renderFloatPrecisionMultipliers = [10]float64{
@@ -77,7 +79,7 @@ var renderFloatPrecisionRounders = [10]float64{
 	0.0000000005,
 }
 
-func RenderFloat(format string, n float64) string {
+func renderFloat(format string, n float64) string {
 	// Special cases:
 	// NaN = "NaN"
 	// +Inf = "+Infinity"
@@ -125,7 +127,7 @@ func RenderFloat(format string, n float64) string {
 			// +0000
 			if formatDirectiveIndices[0] == 0 {
 				if formatDirectiveChars[formatDirectiveIndices[0]] != '+' {
-					panic("RenderFloat(): invalid positive sign directive")
+					panic("renderFloat(): invalid positive sign directive")
 				}
 				positiveStr = "+"
 				formatDirectiveIndices = formatDirectiveIndices[1:]
@@ -139,7 +141,7 @@ func RenderFloat(format string, n float64) string {
 			// 000,000.00
 			if len(formatDirectiveIndices) == 2 {
 				if (formatDirectiveIndices[1] - formatDirectiveIndices[0]) != 4 {
-					panic("RenderFloat(): thousands separator directive must be followed by 3 digit-specifiers")
+					panic("renderFloat(): thousands separator directive must be followed by 3 digit-specifiers")
 				}
 				thousandStr = string(formatDirectiveChars[formatDirectiveIndices[0]])
 				formatDirectiveIndices = formatDirectiveIndices[1:]
@@ -199,8 +201,8 @@ func RenderFloat(format string, n float64) string {
 	return signStr + intStr + decimalStr + fracStr
 }
 
-func RenderInteger(format string, n int) string {
-	return RenderFloat(format, float64(n))
+func renderInteger(format string, n int) string {
+	return renderFloat(format, float64(n))
 }
 
 // Request.RemoteAddress contains port, which we want to remove i.e.:
@@ -252,4 +254,28 @@ func acceptsHTML(hdr http.Header) bool {
 	}
 
 	return (false)
+}
+
+func formatSize(size int64) string {
+	sizeFloat := float64(size)
+	base := math.Log(sizeFloat) / math.Log(1024)
+
+	sizeOn := math.Pow(1024, base-math.Floor(base))
+
+	var round float64
+	pow := math.Pow(10, float64(2))
+	digit := pow * sizeOn
+	round = math.Floor(digit)
+
+	newVal := round / pow
+
+	var suffixes [5]string
+	suffixes[0] = "B"
+	suffixes[1] = "KB"
+	suffixes[2] = "MB"
+	suffixes[3] = "GB"
+	suffixes[4] = "TB"
+
+	getSuffix := suffixes[int(math.Floor(base))]
+	return fmt.Sprintf("%s %s", strconv.FormatFloat(newVal, 'f', -1, 64), getSuffix)
 }

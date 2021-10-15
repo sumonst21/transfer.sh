@@ -1,4 +1,4 @@
-# transfer.sh [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/dutchcoders/transfer.sh?utm_source=badge&utm_medium=badge&utm_campaign=&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/github.com/dutchcoders/transfer.sh)](https://goreportcard.com/report/github.com/dutchcoders/transfer.sh) [![Docker pulls](https://img.shields.io/docker/pulls/dutchcoders/transfer.sh.svg)](https://hub.docker.com/r/dutchcoders/transfer.sh/) [![Build Status](https://github.com/dutchcoders/transfer.sh/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/dutchcoders/transfer.sh/actions/workflows/test.yml?query=branch%3Amaster)
+# transfer.sh [![Go Report Card](https://goreportcard.com/badge/github.com/dutchcoders/transfer.sh)](https://goreportcard.com/report/github.com/dutchcoders/transfer.sh) [![Docker pulls](https://img.shields.io/docker/pulls/dutchcoders/transfer.sh.svg)](https://hub.docker.com/r/dutchcoders/transfer.sh/) [![Build Status](https://github.com/dutchcoders/transfer.sh/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/dutchcoders/transfer.sh/actions/workflows/test.yml?query=branch%3Amaster)
 
 Easy and fast file sharing from the command-line. This code contains the server with everything you need to create your own instance.
 
@@ -6,7 +6,7 @@ Transfer.sh currently supports the s3 (Amazon S3), gdrive (Google Drive), storj 
 
 ## Disclaimer
 
-The service at https://transfersh.com is of unknown origin and reported as cloud malware.
+The service at transfersh.com is of unknown origin and reported as cloud malware.
 
 ## Usage
 
@@ -224,4 +224,7 @@ Contributions are welcome.
 ## Copyright and license
 
 Code and documentation copyright 2011-2018 Remco Verhoef.
+Code and documentation copyright 2018-2020 Andrea Spacca.
+Code and documentation copyright 2020- Andrea Spacca and Stefan Benten.
+
 Code released under [the MIT license](LICENSE).
